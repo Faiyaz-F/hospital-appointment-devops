@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 
 app = Flask(__name__)
@@ -24,6 +24,11 @@ REQUEST_COUNT = Counter(
 @app.before_request
 def count_request():
     REQUEST_COUNT.inc()
+
+
+@app.route("/")
+def home():
+    return send_from_directory("static", "index.html")
 
 
 @app.route("/items", methods=["GET"])
