@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hospital Appointment Booking</title>
+  <style>
+    :root {
+      --blue: #1565c0;
+      --blue-dark: #0d47a1;
+      --blue-light: #e3f2fd;
+      --text: #1f2d3d;
+      --border: #cfd8e3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px 16px;
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, var(--blue-light), #ffffff 60%);
+    }
+    .card {
+      max-width: 760px;
+      margin: 0 auto 24px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 18px rgba(21, 101, 192, 0.15);
+    }
+    h1 { margin: 0 0 4px; color: var(--blue-dark); font-size: 1.6rem; }
+    h2 { margin: 0 0 16px; color: var(--blue); font-size: 1.2rem; }
+    .subtitle { margin: 0 0 20px; color: #5b6b7c; }
+    form { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field.full { grid-column: 1 / -1; }
+    label { font-weight: 600; font-size: 0.9rem; }
+    input, select {
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+    input:focus, select:focus { outline: 2px solid var(--blue); border-color: var(--blue); }
+    button {
+      grid-column: 1 / -1;
+      padding: 12px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: var(--blue-dark); }
+    #message { margin-top: 14px; padding: 10px 12px; border-radius: 8px; display: none; }
+    #message.success { display: block; background: #e8f5e9; color: #1b5e20; }
+    #message.error { display: block; background: #ffebee; color: #b71c1c; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: var(--blue-light); color: var(--blue-dark); }
+    .empty { text-align: center; color: #5b6b7c; }
+    @media (max-width: 560px) {
+      form { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Booking form card -->
+  <main class="card">
+    <h1>Hospital Appointment Booking</h1>
+    <p class="subtitle">Book an appointment with one of our doctors.</p>
+
+    <form id="booking-form">
+      <div class="field full">
+        <label for="patient">Patient name</label>
+        <input type="text" id="patient" required placeholder="e.g. Rahul Verma">
+      </div>
+      <div class="field full">
+        <label for="doctor">Doctor</label>
+        <select id="doctor" required>
+          <option value="Dr. Sharma">Dr. Sharma</option>
+          <option value="Dr. Mehta">Dr. Mehta</option>
+          <option value="Dr. Kulkarni">Dr. Kulkarni</option>
+          <option value="Dr. Rao">Dr. Rao</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="date">Date</label>
+        <input type="date" id="date" required>
+      </div>
+      <div class="field">
+        <label for="time">Time</label>
+        <input type="time" id="time" required>
+      </div>
+      <button type="submit">Book Appointment</button>
+    </form>
+
+    <!-- Success / error feedback shown here -->
+    <div id="message" role="status"></div>
+  </main>
+
+  <!-- Appointments list card -->
+  <section class="card">
+    <h2>Appointments</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Patient</th><th>Doctor</th><th>Date</th><th>Time</th></tr>
+        </thead>
+        <tbody id="appointments-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <script>
+    // Grab the elements we need to read from / write to.
+    const form = document.getElementById("booking-form");
+    const message = document.getElementById("message");
+    const tbody = document.getElementById("appointments-body");
+
+    // Show a coloured message; type is "success" (green) or "error" (red).
+    function showMessage(text, type) {
+      message.textContent = text;
+      message.className = type;
+    }
+
+    // Build one table cell safely with textContent (prevents HTML injection / XSS).
+    function makeCell(value) {
+      const td = document.createElement("td");
+      td.textContent = value;
+      return td;
+    }
+
+    // GET /items from the Flask API and redraw the table.
+    async function loadAppointments() {
+      try {
+        const response = await fetch("/items");
+        const items = await response.json();
+        tbody.replaceChildren(); // clear old rows
+
+        if (items.length === 0) {
+          const row = document.createElement("tr");
+          const cell = makeCell("No appointments yet");
+          cell.colSpan = 5;
+          cell.className = "empty";
+          row.appendChild(cell);
+          tbody.appendChild(row);
+          return;
+        }
+
+        for (const item of items) {
+          const row = document.createElement("tr");
+          [item.id, item.patient, item.doctor, item.date, item.time]
+            .forEach(value => row.appendChild(makeCell(value)));
+          tbody.appendChild(row);
+        }
+      } catch (err) {
+        showMessage("Could not load appointments.", "error");
+      }
+    }
+
+    // On submit: POST the form data as JSON to /items.
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault(); // stop the browser's normal page reload
+
+      const appointment = {
+        patient: document.getElementById("patient").value.trim(),
+        doctor: document.getElementById("doctor").value,
+        date: document.getElementById("date").value,
+        time: document.getElementById("time").value
+      };
+
+      try {
+        const response = await fetch("/items", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(appointment)
+        });
+        const data = await response.json();
+
+        if (response.ok) {                       // 201 Created
+          showMessage("Appointment booked for " + data.patient + "!", "success");
+          form.reset();                          // clear the form
+          loadAppointments();                    // refresh the table
+        } else {                                 // 400 -> show server's error
+          showMessage(data.error || "Booking failed.", "error");
+        }
+      } catch (err) {
+        showMessage("Network error. Please try again.", "error");
+      }
+    });
+
+    // Load the list once when the page opens.
+    loadAppointments();
+  </script>
+</body>
+</html>
